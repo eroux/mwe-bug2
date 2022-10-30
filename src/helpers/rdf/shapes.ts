@@ -304,74 +304,9 @@ export class PropertyShape extends RDFResourceWithLabel {
   }
 }
 
-export class PropertyGroup extends RDFResourceWithLabel {
-  constructor(node: rdf.NamedNode, graph: EntityGraph) {
-    super(node, graph, ns.rdfsLabel)
-  }
-
-  @Memoize()
-  public get properties(): Array<PropertyShape> {
-    const res: Array<PropertyShape> = []
-    let propsingroup: Array<rdf.NamedNode> = this.graph.store.each(null, ns.shGroup, this.node) as Array<rdf.NamedNode>
-    for (const prop of propsingroup) {
-      res.push(new PropertyShape(prop, this.graph))
-    }
-    return res
-  }
-
-  // different property for prefLabels, property shapes are using sh:name
-  @Memoize()
-  public get prefLabels(): Record<string, string> {
-    return this.getPropValueByLang(ns.rdfsLabel)
-  }
-}
 
 export class NodeShape extends RDFResourceWithLabel {
   constructor(node: rdf.NamedNode, graph: EntityGraph) {
     super(node, graph, ns.rdfsLabel)
-  }
-
-  @Memoize()
-  public get targetClassPrefLabels(): Record<string, string> | null {
-    const targetClass: rdf.NamedNode | null = this.graph.store.any(this.node, ns.shTargetClass, null) as rdf.NamedNode
-    if (targetClass == null) return null
-    const classInOntology = new RDFResourceWithLabel(targetClass, this.graph)
-    return classInOntology.prefLabels
-  }
-
-  @Memoize()
-  public get properties(): Array<PropertyShape> {
-    const res: Array<PropertyShape> = []
-    // get all ?shape sh:property/sh:group ?group
-    let props: Array<rdf.NamedNode> = this.graph.store.each(this.node, ns.shProperty, null) as Array<rdf.NamedNode>
-    for (const prop of props) {
-      res.push(new PropertyShape(prop, this.graph))
-    }
-    return res
-  }
-
-  @Memoize()
-  public get independentIdentifiers(): boolean {
-    return this.getPropBooleanValue(ns.rdeIndependentIdentifiers, false)
-  }
-
-  @Memoize()
-  public get groups(): Array<PropertyGroup> {
-    const res: Array<PropertyGroup> = []
-    // get all ?shape sh:property/sh:group ?group
-    const props: Array<rdf.NamedNode> = this.graph.store.each(this.node, ns.shProperty, null) as Array<rdf.NamedNode>
-    let grouplist: Array<rdf.NamedNode> = []
-    for (const prop of props) {
-      // we assume there's only one group per property, by construction of the shape (maybe it's wrong?)
-      const group: rdf.NamedNode | null = this.graph.store.any(prop, ns.shGroup, null) as rdf.NamedNode
-      // for some reason grouplist.includes(group) doesn't work, I suppose new objects are created by rdflib
-      if (group && !grouplist.some((e) => e.value === group.value)) {
-        grouplist.push(group)
-      }
-    }
-    for (const group of grouplist) {
-      res.push(new PropertyGroup(group, this.graph))
-    }
-    return res
   }
 }
