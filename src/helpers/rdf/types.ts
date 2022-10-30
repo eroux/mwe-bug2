@@ -8,31 +8,6 @@ const debug = debugfactory("rde:rdf:types")
 
 const defaultGraphNode = new rdf.NamedNode(rdf.Store.defaultGraphURI)
 
-export const errors: Record<string, Record<string, boolean>> = {}
-
-// global variable, should be in config?
-export const history: Record<string, Array<Record<string, any>>> = {}
-
-export enum ObjectType {
-  Literal,
-  Internal,
-  ResInList,
-  ResExt,
-  ResIgnore,
-  LitInList,
-}
-
-
-export class Path {
-  sparqlString: string | null = null
-
-  directPathNode: rdf.NamedNode | null = null
-  inversePathNode: rdf.NamedNode | null = null
-
-  constructor(node: rdf.NamedNode, graph: EntityGraph, listMode: boolean) {
-  }
-}
-
 // an EntityGraphValues represents the global state of an entity we're editing, in a javascript object (and not an RDF store)
 export class EntityGraphValues {
   oldSubjectProps: Record<string, Record<string, Array<Value>>> = {}
@@ -117,8 +92,6 @@ export class LiteralWithId extends rdf.Literal {
   }
 }
 
-export type Value = Subject | LiteralWithId | RDFResourceWithLabel
-
 export class Subject extends RDFResource {
   node: rdf.NamedNode
 
@@ -127,3 +100,5 @@ export class Subject extends RDFResource {
     this.node = node
   }
 }
+
+export type Value = Subject | LiteralWithId | RDFResourceWithLabel
