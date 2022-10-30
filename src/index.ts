@@ -54,11 +54,7 @@ i18n
   })
 
 export { ns, shapes }
-
-export { default as EntityEditContainer, EntityEditContainerMayUpdate } from "./containers/EntityEditContainer"
 export { default as NewEntityContainer } from "./containers/NewEntityContainer"
-export { default as EntityCreationContainer, EntityCreationContainerRoute } from "./containers/EntityCreationContainer"
-export { default as EntityShapeChooserContainer } from "./containers/EntityShapeChooserContainer"
 export type { IdTypeParams } from "./helpers/editor_props"
 
 export { NodeShape, generateSubnode } from "./helpers/rdf/shapes"
@@ -70,8 +66,6 @@ export { fetchTtl } from "./helpers/rdf/io"
 export { RDFResource, Subject, LiteralWithId, EntityGraph, ExtRDFResourceWithLabel } from "./helpers/rdf/types"
 
 export type { Entity } from "./atoms/common"
-
-export { default as BUDAResourceSelector } from "./containers/BUDAResourceSelector"
 
 export { ValueByLangToStrPrefLang } from "./helpers/lang"
 export type { Lang } from "./helpers/lang"
