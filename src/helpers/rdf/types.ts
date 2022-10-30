@@ -1,3 +1,3 @@
 import * as rdf from "rdflib"
 
-export const defaultGraphNode = new rdf.NamedNode(rdf.Store.defaultGraphURI)
+export const defaultGraphNode = rdf.sym(rdf.Store.defaultGraphURI) as rdf.NamedNode
