@@ -328,23 +328,6 @@ export class EntityGraph {
     })
   }
 
-  static addExtDataFromGraph = (resList: Array<rdf.NamedNode>, graph: EntityGraph): Array<RDFResourceWithLabel> => {
-    return resList.map((res: rdf.NamedNode): RDFResourceWithLabel => {
-      if (!graph.connexGraph) {
-        throw "trying to access inexistant associatedStore"
-      }
-      const perLang: Record<string, string> = {}
-      for (const p of graph.labelProperties) {
-        const lits: Array<rdf.Literal> = graph.connexGraph.each(res, p, null) as Array<rdf.Literal>
-        for (const lit of lits) {
-          if (lit.language in perLang) continue
-          perLang[lit.language] = lit.value
-        }
-      }
-      return new ExtRDFResourceWithLabel(res.uri, perLang, undefined, undefined, graph.prefixMap)
-    })
-  }
-
   hasSubject(subjectUri: string): boolean {
     if (this.values.hasSubject(subjectUri)) return true
     return this.store.any(new rdf.NamedNode(subjectUri), null, null) != null
@@ -371,16 +354,6 @@ export class EntityGraph {
       throw "can't find path of " + p.uri
     }
     switch (p.objectType) {
-      case ObjectType.ResExt:
-        if (!p.path.directPathNode) {
-          // I'm not so sure about this exception but well... it's ok in our current rules
-          throw "can't have non-direct path for property " + p.uri
-        }
-        const fromRDFResExt: Array<rdf.NamedNode> = s.getPropResValuesFromPath(p.path)
-        const fromRDFResExtwData = EntityGraph.addExtDataFromGraph(fromRDFResExt, s.graph)
-        this.onGetInitialValues(s.uri, p.path.sparqlString, fromRDFResExtwData)
-        return fromRDFResExtwData
-        break
       case ObjectType.Internal:
         const fromRDFSubNode: Array<rdf.NamedNode> = s.getPropResValuesFromPath(p.path)
         const fromRDFSubs = EntityGraph.subjectify(fromRDFSubNode, s.graph)
@@ -570,60 +543,6 @@ export class RDFResourceWithLabel extends RDFResource {
     this.node = node
   }
 
-  @Memoize()
-  public get prefLabels(): Record<string, string> {
-    for (const p of this.graph.labelProperties) {
-      const res = this.getPropValueOrNullByLang(p)
-      if (res != null) return res
-    }
-    return { en: this.node.uri }
-  }
-
-  @Memoize()
-  public get description(): Record<string, string> | null {
-    for (const p of this.graph.descriptionProperties) {
-      const res = this.getPropValueOrNullByLang(p)
-      if (res != null) return res
-    }
-    return null
-  }
-}
-
-// this class allows to create a resource from just a URI and labels, we need it for external entities
-export class ExtRDFResourceWithLabel extends RDFResourceWithLabel {
-  private _prefLabels: Record<string, string>
-  private _description: Record<string, string> | null
-  private _otherData: Record<string, any>
-
-  public get prefLabels(): Record<string, string> {
-    return this._prefLabels
-  }
-
-  public get description(): Record<string, string> | null {
-    return this._description
-  }
-
-  public get otherData(): Record<string, any> {
-    return this._otherData
-  }
-
-  constructor(
-    uri: string,
-    prefLabels: Record<string, string>,
-    data: Record<string, any> = {},
-    description: Record<string, any> | null = null,
-    prefixMap?: ns.PrefixMap
-  ) {
-    super(new rdf.NamedNode(uri), new EntityGraph(new rdf.Store(), uri, prefixMap))
-    this._prefLabels = prefLabels
-    this._description = description
-    //debug("data", data)
-    this._otherData = data
-  }
-
-  public addOtherData(key: string, value: any): ExtRDFResourceWithLabel {
-    return new ExtRDFResourceWithLabel(this.uri, this._prefLabels, { ...this._otherData, [key]: value })
-  }
 }
 
 export class LiteralWithId extends rdf.Literal {
@@ -636,18 +555,6 @@ export class LiteralWithId extends rdf.Literal {
     } else {
       this.id = nanoid()
     }
-  }
-
-  public copy() {
-    return new LiteralWithId(this.value, this.language, this.datatype, this.id)
-  }
-
-  public copyWithUpdatedValue(value: string) {
-    return new LiteralWithId(value, this.language, this.datatype, this.id)
-  }
-
-  public copyWithUpdatedLanguage(language: string) {
-    return new LiteralWithId(this.value, language, this.datatype, this.id)
   }
 }
 
@@ -668,43 +575,4 @@ export class Subject extends RDFResource {
   getAtomForProperty(pathString: string) {
     return this.graph.getAtomForSubjectProperty(pathString, this.uri)
   }
-
-  /*
-  // sets the flag to store to history or not according to the case,
-  // allows to store value modification not on top of history,
-  // 
-  // ex: noHisto(false, -1)    // put empty subnodes in history before tmp:allValuesLoaded
-  //     noHisto(false, 1)     // allow parent node in history but default empty subnodes before tmp:allValuesLoaded
-  //     noHisto(false, false) // history back to normal => not exactly... must also use resetNoHisto()
-  //     noHisto(true)         // disable value storing when doing undo/redo
-  */
-  noHisto(force = false, start: boolean | number = true) {
-    const current = this.graph.getValues().noHisto
-    //debug("noHisto:", force, start, this.qname, this, current)
-    if (!force && current === -1) return
-    // DONE: default values need to be added to history when entity is loading
-    if (start !== true) this.graph.getValues().noHisto = start
-    // TODO: update test to be true when adding empty val after having selected ExtEntity in a Facet (use getParentPath?)
-    else if (force || history[this.uri] && history[this.uri].some((h) => h["tmp:allValuesLoaded"]))
-      this.graph.getValues().noHisto = true
-  }
-  resetNoHisto() {
-    this.graph.getValues().noHisto = false
-  }
-
-  static createEmpty(): Subject {
-    return new Subject(new rdf.NamedNode("tmp:uri"), new EntityGraph(new rdf.Store(), "tmp:uri"))
-  }
-
-  isEmpty(): boolean {
-    return this.node.uri == "tmp:uri"
-  }
-}
-
-export const noneSelected = new ExtRDFResourceWithLabel("tmp:none", { en: "–" }, {}, { en: "none provided" })
-export const emptyLiteral = new LiteralWithId("")
-
-export const sameLanguage = (lang1: string, lang2: string): boolean => {
-  // TODO: ignore suffixes
-  return lang1 == lang2
 }
