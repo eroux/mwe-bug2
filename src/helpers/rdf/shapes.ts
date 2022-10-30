@@ -3,11 +3,6 @@ import {
   RDFResource,
   RDFResourceWithLabel,
   EntityGraph,
-  Subject,
-  rdfLitAsNumber,
-  LiteralWithId,
-  ObjectType,
-  Path,
 } from "./types"
 import * as ns from "./ns"
 import { Memoize } from "typescript-memoize"
