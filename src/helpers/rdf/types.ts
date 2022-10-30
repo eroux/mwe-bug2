@@ -1,7 +1,5 @@
 import * as rdf from "rdflib"
 import { Memoize } from "typescript-memoize"
-import { atom, DefaultValue, AtomEffect, RecoilState } from "recoil"
-import { nanoid } from "nanoid"
 import { debug as debugfactory } from "debug"
 
 const debug = debugfactory("rde:rdf:types")
@@ -80,15 +78,11 @@ export class RDFResourceWithLabel extends RDFResource {
 }
 
 export class LiteralWithId extends rdf.Literal {
-  id: string
+  id?: string
 
   constructor(value: string, language?: string | null, datatype?: rdf.NamedNode, id?: string) {
     super(value, language, datatype)
-    if (id) {
-      this.id = id
-    } else {
-      this.id = nanoid()
-    }
+    this.id = id
   }
 }
 
