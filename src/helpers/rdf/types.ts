@@ -1,9 +1,7 @@
 import * as rdf from "rdflib"
-import * as ns from "./ns"
 import { Memoize } from "typescript-memoize"
 import { atom, DefaultValue, AtomEffect, RecoilState } from "recoil"
 import { nanoid } from "nanoid"
-import { shInversePath } from "./ns"
 import { debug as debugfactory } from "debug"
 
 const debug = debugfactory("rde:rdf:types")
@@ -26,29 +24,12 @@ export enum ObjectType {
 
 
 export class Path {
-  sparqlString: string
+  sparqlString: string | null = null
 
   directPathNode: rdf.NamedNode | null = null
   inversePathNode: rdf.NamedNode | null = null
 
   constructor(node: rdf.NamedNode, graph: EntityGraph, listMode: boolean) {
-    const invpaths = graph.store.each(node, shInversePath, null) as Array<rdf.NamedNode>
-    if (invpaths.length > 1) {
-      throw "too many inverse path in shacl path:" + invpaths
-    }
-    if (invpaths.length == 1) {
-      const invpath = invpaths[0]
-      this.sparqlString = "^" + invpath.value
-      this.inversePathNode = invpath
-    } else {
-      // if this is a list we add "[]" at the end
-      if (listMode) {
-        this.sparqlString = node.value + "[]"
-      } else {
-        this.sparqlString = node.value
-      }
-      this.directPathNode = node as rdf.NamedNode
-    }
   }
 }
 
@@ -67,11 +48,6 @@ export class EntityGraphValues {
 
 }
 
-type setSelfOnSelf = {
-  setSelf: (arg: any) => void
-  onSet: (newValues: (arg: Array<Value> | DefaultValue) => void) => void
-}
-
 // a proxy to an EntityGraph that updates the entity graph but is purely read-only, so that React is happy
 export class EntityGraph {
 
@@ -87,22 +63,13 @@ export class EntityGraph {
   // connexGraph is the store that contains the labels of associated resources
   // (ex: students, teachers, etc.), it's not present in all circumstances
   connexGraph?: rdf.Store
-  prefixMap: ns.PrefixMap
-  labelProperties: Array<rdf.NamedNode>
-  descriptionProperties: Array<rdf.NamedNode>
 
   constructor(
     store: rdf.Store,
     topSubjectUri: string,
-    prefixMap = ns.defaultPrefixMap,
     connexGraph: rdf.Store = rdf.graph(),
-    labelProperties = ns.defaultLabelProperties,
-    descriptionProperties = ns.defaultDescriptionProperties
   ) {
     this.store = store
-    this.prefixMap = prefixMap
-    this.descriptionProperties = descriptionProperties
-    this.labelProperties = labelProperties
     // strange code: we're keeping values in the closure so that when the object freezes
     // the freeze doesn't proagate to it
     const values = new EntityGraphValues(topSubjectUri)
@@ -123,30 +90,6 @@ export class RDFResource {
     this.node = node
     this.graph = graph
     this.isCollection = node instanceof rdf.Collection
-  }
-
-  public get id(): string {
-    return this.node.value
-  }
-
-  public get value(): string {
-    return this.node.value
-  }
-
-  public get lname(): string {
-    return this.graph.prefixMap.lnameFromUri(this.node.value)
-  }
-
-  public get namespace(): string {
-    return this.graph.prefixMap.namespaceFromUri(this.node.value)
-  }
-
-  public get qname(): string {
-    return this.graph.prefixMap.qnameFromUri(this.node.value)
-  }
-
-  public get uri(): string {
-    return this.node.value
   }
 
 }
