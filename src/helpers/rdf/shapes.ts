@@ -10,42 +10,12 @@ import {
   Path,
 } from "./types"
 import * as ns from "./ns"
-import {
-  dashSingleLine,
-  rdeConnectIDs,
-  rdeDefaultValue,
-  rdeDisplayPriority,
-  rdfsLabel,
-  shMessage,
-  shMinCount,
-} from "./ns"
 import { Memoize } from "typescript-memoize"
-import { customAlphabet } from "nanoid"
-import { debug as debugfactory } from "debug"
 
-const debug = debugfactory("rde:rdf:shapes")
-
-export const sortByPropValue = (
-  nodelist: Array<rdf.NamedNode>,
-  property: rdf.NamedNode,
-  store: rdf.Store
-): Array<rdf.NamedNode> => {
-  const nodeUriToPropValue: Record<string, number> = {}
-  for (const node of nodelist) {
-    const ordern: rdf.Literal | null = store.any(node, property, null) as rdf.Literal
-    if (!ordern) nodeUriToPropValue[node.uri] = 0
-    const asnum = rdfLitAsNumber(ordern)
-    nodeUriToPropValue[node.uri] = asnum == null ? 0 : asnum
-  }
-  // TODO: untested
-  return [...nodelist].sort((a: rdf.NamedNode, b: rdf.NamedNode) => {
-    return nodeUriToPropValue[a.uri] - nodeUriToPropValue[b.uri]
-  })
-}
 
 export class PropertyShape extends RDFResourceWithLabel {
   constructor(node: rdf.NamedNode, graph: EntityGraph) {
-    super(node, graph, rdfsLabel)
+    super(node, graph, ns.rdfsLabel)
   }
 
   // different property for prefLabels, property shapes are using sh:name, otherwise use
@@ -82,33 +52,33 @@ export class PropertyShape extends RDFResourceWithLabel {
   // error message?
   @Memoize()
   public get errorMessage(): Record<string, string> | null {
-    const res = this.getPropValueByLang(shMessage)
+    const res = this.getPropValueByLang(ns.shMessage)
     return res
   }
 
   @Memoize()
   public get defaultValue(): rdf.Node | null {
-    return this.graph.store.any(this.node, rdeDefaultValue, null)
+    return this.graph.store.any(this.node, ns.rdeDefaultValue, null)
   }
 
   @Memoize()
   public get singleLine(): boolean {
-    return this.getPropBooleanValue(dashSingleLine)
+    return this.getPropBooleanValue(ns.dashSingleLine)
   }
 
   @Memoize()
   public get connectIDs(): boolean {
-    return this.getPropBooleanValue(rdeConnectIDs, false)
+    return this.getPropBooleanValue(ns.rdeConnectIDs, false)
   }
 
   @Memoize()
   public get displayPriority(): number | null {
-    return this.getPropIntValue(rdeDisplayPriority)
+    return this.getPropIntValue(ns.rdeDisplayPriority)
   }
 
   @Memoize()
   public get minCount(): number | null {
-    return this.getPropIntValue(shMinCount)
+    return this.getPropIntValue(ns.shMinCount)
   }
 
   @Memoize()
@@ -317,7 +287,6 @@ export class PropertyShape extends RDFResourceWithLabel {
   public get targetShape(): NodeShape | null {
     const path = this.path
     if (!path) {
-      debug("can't find path for " + this.uri)
       return null
     }
     let val: rdf.NamedNode | null
@@ -337,14 +306,13 @@ export class PropertyShape extends RDFResourceWithLabel {
 
 export class PropertyGroup extends RDFResourceWithLabel {
   constructor(node: rdf.NamedNode, graph: EntityGraph) {
-    super(node, graph, rdfsLabel)
+    super(node, graph, ns.rdfsLabel)
   }
 
   @Memoize()
   public get properties(): Array<PropertyShape> {
     const res: Array<PropertyShape> = []
     let propsingroup: Array<rdf.NamedNode> = this.graph.store.each(null, ns.shGroup, this.node) as Array<rdf.NamedNode>
-    propsingroup = sortByPropValue(propsingroup, ns.shOrder, this.graph.store)
     for (const prop of propsingroup) {
       res.push(new PropertyShape(prop, this.graph))
     }
@@ -354,13 +322,13 @@ export class PropertyGroup extends RDFResourceWithLabel {
   // different property for prefLabels, property shapes are using sh:name
   @Memoize()
   public get prefLabels(): Record<string, string> {
-    return this.getPropValueByLang(rdfsLabel)
+    return this.getPropValueByLang(ns.rdfsLabel)
   }
 }
 
 export class NodeShape extends RDFResourceWithLabel {
   constructor(node: rdf.NamedNode, graph: EntityGraph) {
-    super(node, graph, rdfsLabel)
+    super(node, graph, ns.rdfsLabel)
   }
 
   @Memoize()
@@ -376,7 +344,6 @@ export class NodeShape extends RDFResourceWithLabel {
     const res: Array<PropertyShape> = []
     // get all ?shape sh:property/sh:group ?group
     let props: Array<rdf.NamedNode> = this.graph.store.each(this.node, ns.shProperty, null) as Array<rdf.NamedNode>
-    props = sortByPropValue(props, ns.shOrder, this.graph.store)
     for (const prop of props) {
       res.push(new PropertyShape(prop, this.graph))
     }
@@ -402,26 +369,9 @@ export class NodeShape extends RDFResourceWithLabel {
         grouplist.push(group)
       }
     }
-    grouplist = sortByPropValue(grouplist, ns.shOrder, this.graph.store)
     for (const group of grouplist) {
       res.push(new PropertyGroup(group, this.graph))
     }
     return res
   }
-}
-
-// default implementation, can be overridden through config
-const nanoidCustom = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8) // eslint-disable-line no-magic-numbers
-
-export const generateSubnode = async (subshape: NodeShape, parent: RDFResource): Promise<Subject> => {
-  const prefix = subshape.getPropStringValue(ns.rdeIdentifierPrefix)
-  if (prefix == null) throw "cannot find entity prefix for " + subshape.qname
-  let namespace = subshape.getPropStringValue(ns.shNamespace)
-  if (namespace == null) namespace = parent.namespace
-  let uri = namespace + prefix + parent.lname + nanoidCustom()
-  while (parent.graph.hasSubject(uri)) {
-    uri = namespace + prefix + nanoidCustom()
-  }
-  const res = new Subject(new rdf.NamedNode(uri), parent.graph)
-  return Promise.resolve(res)
 }
